@@ -1,0 +1,22 @@
+# dbt project config for the MMM input mart challenge.
+# Candidate: build out your models under models/ (organize the layers
+# however you think is right) and configure materializations below.
+
+name: 'mmm_challenge'
+version: '1.0.0'
+config-version: 2
+
+profile: 'mmm_challenge'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  mmm_challenge: {}

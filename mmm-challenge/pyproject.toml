@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "mmm-challenge"
+version = "0.1.0"
+description = "MMM input mart pipeline: CSV ingest -> SQLite -> dbt -> Dagster"
+authors = ["Ovative Group"]
+packages = [{ include = "mmm_challenge", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+dagster = ">=1.13.0"
+dbt-sqlite = ">=1.8.0"
+
+[tool.poetry.group.dev.dependencies]
+dagster-webserver = "*"
+dagster-dg-cli = "*"
+pytest = ">=8.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.7.0"]
+build-backend = "poetry.core.masonry.api"
+
+# dg (Dagster's project CLI) config -- lets `dg dev` / `dg check defs` find
+# your code with zero arguments. See src/mmm_challenge/definitions.py.
+[tool.dg]
+directory_type = "project"
+
+[tool.dg.project]
+root_module = "mmm_challenge"
+registry_modules = ["mmm_challenge.components.*"]

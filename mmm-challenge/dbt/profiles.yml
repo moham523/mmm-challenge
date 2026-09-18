@@ -1,0 +1,16 @@
+# dbt-sqlite connection profile.
+# Paths are relative to the directory dbt is invoked from (i.e. `cd dbt && dbt run`).
+# Adjust `schemas_and_paths.main` if your ingest script writes the SQLite file elsewhere.
+# Note: SQLite locks the whole database on writes, so `threads` must stay at 1.
+
+mmm_challenge:
+  target: dev
+  outputs:
+    dev:
+      type: sqlite
+      threads: 1
+      database: 'mmm_challenge'
+      schema: 'main'
+      schemas_and_paths:
+        main: 'mmm_challenge.db'
+      schema_directory: '.'
