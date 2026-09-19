@@ -1,0 +1,24 @@
+# Schema tests for the final mart -- catches a broken join (duplicate/missing
+# weeks) or a null slipping through before the CSV gets exported.
+version: 2
+
+models:
+  - name: mmm_mart
+    description: >
+      Weekly MMM input mart: one row per week (Monday-Sunday, ending Sunday),
+      with revenue, spend by channel/subchannel, and monthly CPI. This is the
+      final deliverable exported to data/output/mmm_mart.csv.
+    columns:
+      - name: week_end_date
+        description: The Sunday ending this week.
+        tests:
+          - not_null
+          - unique
+      - name: revenue
+        description: Total transaction revenue for the week.
+        tests:
+          - not_null
+      - name: cpi_value
+        description: CPI value for the month this week's end date falls in.
+        tests:
+          - not_null
