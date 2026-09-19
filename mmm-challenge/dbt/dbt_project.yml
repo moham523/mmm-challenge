@@ -22,3 +22,5 @@ models:
   mmm_challenge:
     staging:
       +materialized: view
+    intermediate:
+      +materialized: view
