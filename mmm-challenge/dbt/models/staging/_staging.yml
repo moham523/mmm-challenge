@@ -1,0 +1,47 @@
+# Column docs + not_null/unique tests for the staging models (run via `dbt test`).
+version: 2
+
+models:
+  - name: stg_spend
+    description: Weekly marketing spend by channel/subchannel, pass-through of raw_spend with week_end_date normalized to a Sunday.
+    columns:
+      - name: week_end_date
+        description: The Sunday ending the week this spend was recorded in.
+        tests:
+          - not_null
+      - name: channel
+        tests:
+          - not_null
+      - name: subchannel
+        tests:
+          - not_null
+      - name: spend
+        tests:
+          - not_null
+
+  - name: stg_transactions
+    description: >
+      Daily order-level transactions, pass-through of raw_transactions with week_end_date
+      derived and customer_id intentionally dropped (PII should not leave staging).
+    columns:
+      - name: transaction_date
+        tests:
+          - not_null
+      - name: week_end_date
+        description: The Sunday ending the week this transaction falls in.
+        tests:
+          - not_null
+      - name: revenue
+        tests:
+          - not_null
+
+  - name: stg_cpi
+    description: Monthly CPI (inflation) values, pass-through of raw_cpi.
+    columns:
+      - name: month
+        tests:
+          - not_null
+          - unique
+      - name: cpi_value
+        tests:
+          - not_null

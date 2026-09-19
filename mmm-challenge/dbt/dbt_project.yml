@@ -19,4 +19,6 @@ clean-targets:
   - "dbt_packages"
 
 models:
-  mmm_challenge: {}
+  mmm_challenge:
+    staging:
+      +materialized: view

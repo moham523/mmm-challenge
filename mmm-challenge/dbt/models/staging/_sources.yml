@@ -1,0 +1,15 @@
+# Declares the raw tables ingest.py creates so staging models can reference
+# them via source() instead of hardcoding table names.
+version: 2
+
+sources:
+  - name: raw
+    schema: main
+    description: Raw tables loaded directly from CSVs by ingest.py, unmodified.
+    tables:
+      - name: raw_spend
+        description: Weekly marketing spend by channel/subchannel, one row per week/channel/subchannel.
+      - name: raw_transactions
+        description: Daily order-level transactions, one row per order. Includes customer_id (PII).
+      - name: raw_cpi
+        description: Monthly CPI (inflation) values, one row per month.
