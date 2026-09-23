@@ -1,4 +1,4 @@
-"""Dagster asset graph: ingest CSVs -> dbt build -> dbt test -> export mart CSV."""
+"""Dagster asset graph: ingest -> dbt staging -> intermediate -> marts -> test -> export CSV."""
 
 import csv
 import sqlite3
@@ -8,22 +8,14 @@ from dagster import AssetCheckResult, Failure, MaterializeResult, MetadataValue,
 
 from mmm_challenge.ingest import DATA_RAW_DIR, DB_PATH, ingest_all
 
-# Reuse ingest.py's already-computed paths instead of recalculating parents[]
-# ourselves -- DB_PATH lives inside dbt/, and data/raw's parent is data/.
+# Reuse ingest.py's paths instead of recomputing them.
 DBT_PROJECT_DIR = DB_PATH.parent
 MART_CSV_PATH = DATA_RAW_DIR.parent / "output" / "mmm_mart.csv"
 
 
 def _run_dbt(args: list[str]) -> str:
-    """Run a dbt command (e.g. ["run"] or ["test"]) as a subprocess, since this
-    project doesn't have the dagster-dbt integration installed. Raises a
-    Dagster Failure with dbt's captured stdout/stderr if the command fails.
-
-    cwd is pinned to DBT_PROJECT_DIR -- profiles.yml's schema_directory: '.'
-    resolves relative to the process's cwd, not to --project-dir, so without
-    this dbt silently opens/creates the SQLite file in the wrong place
-    whenever this runs from somewhere other than dbt/ (e.g. under Dagster).
-    """
+    """Run a dbt command as a subprocess; raises Failure with stdout/stderr on error."""
+    # cwd pinned to DBT_PROJECT_DIR -- profiles.yml resolves paths relative to cwd, not --project-dir.
     result = subprocess.run(
         ["dbt", *args, "--project-dir", str(DBT_PROJECT_DIR), "--profiles-dir", str(DBT_PROJECT_DIR)],
         cwd=DBT_PROJECT_DIR,
@@ -40,38 +32,39 @@ def _run_dbt(args: list[str]) -> str:
 
 @asset
 def raw_source_tables() -> MaterializeResult:
-    """Load spend.csv, transactions.csv, and cpi.csv into SQLite raw tables.
-
-    Deliberately no try/except around ingest_all(): if it raises, Dagster
-    marks this step failed and skips downstream assets in this run, instead
-    of silently continuing on to dbt with incomplete/stale raw tables.
-    """
-    row_counts = ingest_all()
+    """Load spend.csv, transactions.csv, and cpi.csv into SQLite raw tables."""
+    row_counts = ingest_all() 
     return MaterializeResult(metadata={name: MetadataValue.int(count) for name, count in row_counts.items()})
 
 
 @asset(deps=[raw_source_tables])
+def dbt_staging() -> None:
+    """Build the staging dbt models."""
+    _run_dbt(["run", "--select", "staging"])
+
+
+@asset(deps=[dbt_staging])
+def dbt_intermediate() -> None:
+    """Build the intermediate dbt models."""
+    _run_dbt(["run", "--select", "intermediate"])
+
+
+@asset(deps=[dbt_intermediate])
 def mmm_mart() -> None:
-    """Build all dbt models (staging -> intermediate -> marts) via `dbt run`.
-    Depends on raw_source_tables so ingestion always runs first."""
-    _run_dbt(["run"])
+    """Build the final mmm_mart table."""
+    _run_dbt(["run", "--select", "marts"])
 
 
 @asset_check(asset=mmm_mart, blocking=True)
 def mmm_mart_tests() -> AssetCheckResult:
-    """Run `dbt test` (schema tests + the dropped-week singular test).
-    blocking=True: if any test fails, mmm_mart_csv (downstream, same run)
-    does not execute -- we don't want to export a CSV built on data that
-    failed validation."""
+    """Run `dbt test`; blocking=True skips mmm_mart_csv if any test fails."""
     _run_dbt(["test"])
     return AssetCheckResult(passed=True)
 
 
 @asset(deps=[mmm_mart])
 def mmm_mart_csv() -> MaterializeResult:
-    """Export the finished mmm_mart table to data/output/mmm_mart.csv, the
-    actual deliverable file. Opened in "w" (truncate) mode so every run fully
-    replaces the file instead of appending stale rows on top of old ones."""
+    """Export mmm_mart to data/output/mmm_mart.csv, overwriting cleanly."""
     conn = sqlite3.connect(DB_PATH)
     try:
         cur = conn.cursor()
