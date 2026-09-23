@@ -57,6 +57,18 @@ def _read_csv_rows(csv_path: Path, columns: list[ColumnSpec]) -> list[tuple[obje
     """Read a CSV file and convert each row into a tuple, in column order."""
     with csv_path.open(newline="") as f:
         reader = csv.DictReader(f)
+
+        # Fail loudly and clearly if the CSV's header is missing an expected
+        # column, instead of letting it crash later with a vague KeyError.
+        expected_columns = {name for name, _, _ in columns}
+        found_columns = set(reader.fieldnames or [])
+        missing_columns = expected_columns - found_columns
+        if missing_columns:
+            raise ValueError(
+                f"{csv_path.name}: missing expected column(s) {sorted(missing_columns)} "
+                f"-- found columns: {reader.fieldnames}"
+            )
+
         return [tuple(convert(row[name]) for name, _, convert in columns) for row in reader]
 
 
@@ -127,5 +139,4 @@ def ingest_all(data_dir: Path = DATA_RAW_DIR, db_path: Path = DB_PATH) -> dict[s
 
 
 if __name__ == "__main__":
-    for table_name, row_count in ingest_all().items():
-        print(f"{table_name}: {row_count} rows")
+    ingest_all()
